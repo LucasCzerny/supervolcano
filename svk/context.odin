@@ -8,9 +8,14 @@ import vk "vendor:vulkan"
 Context :: struct {
 	instance: vk.Instance,
 	window:   Window,
+	device:   Device,
 }
 
-create_context :: proc(instance_config: Instance_Config, window_config: Window_Config) -> Context {
+create_context :: proc(
+	instance_config: Instance_Config,
+	window_config: Window_Config,
+	device_config: Device_Config,
+) -> Context {
 	ctx: Context
 
 	create_glfw_window(&ctx.window, window_config)
@@ -19,6 +24,8 @@ create_context :: proc(instance_config: Instance_Config, window_config: Window_C
 	create_instance(&ctx.instance, instance_config)
 
 	create_surface(&ctx.window, ctx.instance)
+
+	ctx.device = create_device(device_config, ctx.instance, ctx.window.surface)
 
 	return ctx
 }

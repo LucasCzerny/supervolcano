@@ -1,16 +1,22 @@
 package svk
 
+import "core:fmt"
+import "core:mem"
+import "core:slice"
+
 import vk "vendor:vulkan"
 
 Device_Config :: struct {
 	extensions: []cstring,
+	features:   vk.PhysicalDeviceFeatures,
 }
 
 Device :: struct {
-	logical:        vk.Device,
-	physical:       vk.PhysicalDevice,
-	graphics_queue: Queue,
-	present_queue:  Queue,
+	logical:           vk.Device,
+	physical:          vk.PhysicalDevice,
+	graphics_queue:    Queue,
+	present_queue:     Queue,
+	swapchain_support: Swapchain_Support,
 }
 
 Swapchain_Support :: struct {
@@ -26,7 +32,8 @@ create_device :: proc(
 ) -> Device {
 	device: Device
 
-	choose_physical_device_and_queues(&device, instance, surface)
+	choose_physical_device_and_queues(&device, config, instance, surface)
+	choose_logical_device(&device, config)
 
 	return device
 }
@@ -34,6 +41,7 @@ create_device :: proc(
 @(private = "file")
 choose_physical_device_and_queues :: proc(
 	device: ^Device,
+	config: Device_Config,
 	instance: vk.Instance,
 	surface: vk.SurfaceKHR,
 ) {
@@ -52,16 +60,61 @@ choose_physical_device_and_queues :: proc(
 			continue
 		}
 
-		swapchain_support = query_swapchain_support()
-		if !swapchain_support... {
+		complete, swapchain_support := query_swapchain_support(physical_device, surface)
+		if !complete {
+			continue
+		}
+
+		if !supports_extensions(physical_device, config.extensions) {
+			continue
+		}
+
+		if !supports_features(physical_device, config.features) {
 			continue
 		}
 
 		device.physical = physical_device
-		device.graphics_queue = graphics_queue
-		device.present_queue = present_queue
+		device.graphics_queue.family = graphics_queue
+		device.present_queue.family = present_queue
 
 		break
+	}
+}
+
+@(private = "file")
+choose_logical_device :: proc(device: ^Device, config: Device_Config) {
+	features := config.features
+
+	// if the graphics_queue and present_queue are the same,
+	// only the first element will be set
+	// otherwise both are set
+	queue_create_infos: [2]vk.DeviceQueueCreateInfo
+
+	unique_queue_families :=
+		1 if device.graphics_queue.family == device.present_queue.family else 2
+
+	queue_family_indices := [2]u32{device.graphics_queue.family, device.present_queue.family}
+
+	for i in 0 ..< unique_queue_families {
+		queue_create_info := vk.DeviceQueueCreateInfo {
+			sType            = .DEVICE_QUEUE_CREATE_INFO,
+			queueFamilyIndex = queue_family_indices[i],
+			queueCount       = 1,
+		}
+
+		queue_create_infos[i] = queue_create_info
+	}
+
+	device_info := vk.DeviceCreateInfo {
+		sType                = .DEVICE_CREATE_INFO,
+		queueCreateInfoCount = u32(unique_queue_families),
+		pQueueCreateInfos    = raw_data(queue_create_infos[:]),
+		pEnabledFeatures     = &features,
+	}
+
+	result := vk.CreateDevice(device.physical, &device_info, nil, &device.logical)
+	if result != .SUCCESS {
+		fmt.panicf("Failed to create the logical device (result: %v)", result)
 	}
 }
 
@@ -99,5 +152,88 @@ get_queue_families :: proc(device: vk.PhysicalDevice, surface: vk.SurfaceKHR) ->
 	}
 
 	return false, 0, 0
+}
+
+@(private = "file")
+query_swapchain_support :: proc(
+	device: vk.PhysicalDevice,
+	surface: vk.SurfaceKHR,
+) -> (
+	bool,
+	Swapchain_Support,
+) {
+	support: Swapchain_Support
+
+	vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &support.capabilities)
+	surface_format_count: u32
+	vk.GetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surface_format_count, nil)
+
+	if surface_format_count == 0 {
+		return false, support
+	}
+
+	support.surface_formats = make([]vk.SurfaceFormatKHR, surface_format_count)
+	vk.GetPhysicalDeviceSurfaceFormatsKHR(device, surface, nil, raw_data(support.surface_formats))
+
+	present_modes_count: u32
+	vk.GetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_modes_count, nil)
+
+	if present_modes_count == 0 {
+		return false, support
+	}
+
+	support.present_modes = make([]vk.PresentModeKHR, present_modes_count)
+	vk.GetPhysicalDeviceSurfacePresentModesKHR(
+		device,
+		surface,
+		nil,
+		raw_data(support.present_modes),
+	)
+
+	return true, support
+}
+
+@(private = "file")
+supports_extensions :: proc(device: vk.PhysicalDevice, required_extensions: []cstring) -> bool {
+	extension_count: u32
+	vk.EnumerateDeviceExtensionProperties(device, nil, &extension_count, nil)
+
+	assert(extension_count == 0, "No device extension are available")
+
+	available_extensions := make([]vk.ExtensionProperties, extension_count)
+	vk.EnumerateDeviceExtensionProperties(device, nil, nil, raw_data(available_extensions))
+
+	found: u32
+	for extension in available_extensions {
+		extension_name := extension.extensionName
+
+		if slice.contains(required_extensions[:], cstring(raw_data(extension_name[:]))) {
+			found += 1
+		}
+	}
+
+	return extension_count == found
+}
+
+@(private = "file")
+supports_features :: proc(
+	device: vk.PhysicalDevice,
+	required_features: vk.PhysicalDeviceFeatures,
+) -> bool {
+	required_features := required_features
+
+	features: vk.PhysicalDeviceFeatures
+	vk.GetPhysicalDeviceFeatures(device, &features)
+
+	// there are exactly 55 features in the vk.PhysicalDeviceFeatures struct
+	// all of them are b32's
+	// yes this is scuffed
+	for i in 0 ..< 55 {
+		if mem.ptr_offset(&features, i) < mem.ptr_offset(&required_features, i) {
+			return false
+		}
+	}
+
+	return true
 }
 

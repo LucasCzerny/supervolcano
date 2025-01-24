@@ -24,7 +24,12 @@ main :: proc() {
 		fullscreen     = false,
 	}
 
-	ctx := svk.create_context(instance_config, window_config)
+	device_config := svk.Device_Config {
+		extensions = []cstring{"VK_KHR_swapchain", "VK_EXT_descriptor_indexing"},
+		features = vk.PhysicalDeviceFeatures{samplerAnisotropy = true},
+	}
+
+	ctx := svk.create_context(instance_config, window_config, device_config)
 	defer svk.destroy_context(&ctx)
 }
 

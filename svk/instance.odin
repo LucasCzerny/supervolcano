@@ -27,6 +27,8 @@ create_instance :: proc(instance: ^vk.Instance, config: Instance_Config) {
 	assert(len(glfw_extensions) != 0, "No GLFW extensions were found")
 
 	extensions: [dynamic]cstring
+	reserve(&extensions, len(config.extensions) + len(glfw_extensions))
+
 	append(&extensions, ..config.extensions)
 	append(&extensions, ..glfw_extensions)
 
