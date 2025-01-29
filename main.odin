@@ -29,7 +29,13 @@ main :: proc() {
 		features = vk.PhysicalDeviceFeatures{samplerAnisotropy = true},
 	}
 
+	swapchain_config := svk.Swapchain_Config{}
+
 	ctx := svk.create_context(instance_config, window_config, device_config)
 	defer svk.destroy_context(&ctx)
-}
 
+	pipelines := []PipelineConfig{{}}
+
+	rendersystem := svk.create_rendersystem()
+	defer svk.destroy_rendersystem(&rendersystem)
+}

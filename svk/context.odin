@@ -6,9 +6,17 @@ import "vendor:glfw"
 import vk "vendor:vulkan"
 
 Context :: struct {
-	instance: vk.Instance,
-	window:   Window,
-	device:   Device,
+	instance:          vk.Instance,
+	window:            Window,
+	//
+	device:            vk.Device,
+	physical_device:   vk.PhysicalDevice,
+	swapchain_support: Swapchain_Support,
+	//
+	graphics_queue:    Queue,
+	present_queue:     Queue,
+	//
+	swapchain:         Swapchain,
 }
 
 create_context :: proc(
@@ -25,18 +33,16 @@ create_context :: proc(
 
 	create_surface(&ctx.window, ctx.instance)
 
-	ctx.device = create_device(device_config, ctx.instance, ctx.window.surface)
+	create_device_assets(&ctx, device_config, ctx.instance, ctx.window.surface)
 
 	return ctx
 }
 
 destroy_context :: proc(ctx: ^Context) {
 	// instance
-
 	vk.DestroyInstance(ctx.instance, nil)
 
 	// window
-
 	vk.DestroySurfaceKHR(ctx.instance, ctx.window.surface, nil)
 	glfw.DestroyWindow(ctx.window.handle)
 }
@@ -52,4 +58,3 @@ init_vulkan :: proc() {
 
 	vk.load_proc_addresses(get_proc_address)
 }
-

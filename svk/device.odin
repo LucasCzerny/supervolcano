@@ -11,36 +11,25 @@ Device_Config :: struct {
 	features:   vk.PhysicalDeviceFeatures,
 }
 
-Device :: struct {
-	logical:           vk.Device,
-	physical:          vk.PhysicalDevice,
-	graphics_queue:    Queue,
-	present_queue:     Queue,
-	swapchain_support: Swapchain_Support,
-}
-
 Swapchain_Support :: struct {
 	capabilities:    vk.SurfaceCapabilitiesKHR,
 	surface_formats: []vk.SurfaceFormatKHR,
 	present_modes:   []vk.PresentModeKHR,
 }
 
-create_device :: proc(
+create_device_assets :: proc(
+	ctx: ^Context,
 	config: Device_Config,
 	instance: vk.Instance,
 	surface: vk.SurfaceKHR,
-) -> Device {
-	device: Device
-
-	choose_physical_device_and_queues(&device, config, instance, surface)
-	choose_logical_device(&device, config)
-
-	return device
+) {
+	choose_physical_device_and_queues(ctx, config, instance, surface)
+	choose_logical_device(ctx, config)
 }
 
 @(private = "file")
 choose_physical_device_and_queues :: proc(
-	device: ^Device,
+	ctx: ^Context,
 	config: Device_Config,
 	instance: vk.Instance,
 	surface: vk.SurfaceKHR,
@@ -73,16 +62,16 @@ choose_physical_device_and_queues :: proc(
 			continue
 		}
 
-		device.physical = physical_device
-		device.graphics_queue.family = graphics_queue
-		device.present_queue.family = present_queue
+		ctx.physical_device = physical_device
+		ctx.graphics_queue.family = graphics_queue
+		ctx.present_queue.family = present_queue
 
 		break
 	}
 }
 
 @(private = "file")
-choose_logical_device :: proc(device: ^Device, config: Device_Config) {
+choose_logical_device :: proc(ctx: ^Context, config: Device_Config) {
 	features := config.features
 
 	// if the graphics_queue and present_queue are the same,
@@ -90,10 +79,9 @@ choose_logical_device :: proc(device: ^Device, config: Device_Config) {
 	// otherwise both are set
 	queue_create_infos: [2]vk.DeviceQueueCreateInfo
 
-	unique_queue_families :=
-		1 if device.graphics_queue.family == device.present_queue.family else 2
+	unique_queue_families := 1 if ctx.graphics_queue.family == ctx.present_queue.family else 2
 
-	queue_family_indices := [2]u32{device.graphics_queue.family, device.present_queue.family}
+	queue_family_indices := [2]u32{ctx.graphics_queue.family, ctx.present_queue.family}
 
 	for i in 0 ..< unique_queue_families {
 		queue_create_info := vk.DeviceQueueCreateInfo {
@@ -112,7 +100,7 @@ choose_logical_device :: proc(device: ^Device, config: Device_Config) {
 		pEnabledFeatures     = &features,
 	}
 
-	result := vk.CreateDevice(device.physical, &device_info, nil, &device.logical)
+	result := vk.CreateDevice(ctx.physical_device, &device_info, nil, &ctx.device)
 	if result != .SUCCESS {
 		fmt.panicf("Failed to create the logical device (result: %v)", result)
 	}
@@ -236,4 +224,3 @@ supports_features :: proc(
 
 	return true
 }
-
