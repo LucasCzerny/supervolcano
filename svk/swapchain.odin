@@ -15,7 +15,7 @@ Swapchain_Config :: struct {
 Swapchain :: struct {
 	handle:               vk.SwapchainKHR,
 	//
-	format:               vk.SurfaceFormatKHR,
+	surface_format:       vk.SurfaceFormatKHR,
 	depth_format:         vk.Format,
 	present_mode:         vk.PresentModeKHR,
 	extent:               vk.Extent2D,
@@ -40,7 +40,7 @@ recreate_swapchain :: proc(ctx: ^Context, swapchain: ^Swapchain, config: Swapcha
 
 	vk.DeviceWaitIdle(ctx.device)
 
-	swapchain.format, swapchain.depth_format = choose_surface_formats(
+	swapchain.surface_format, swapchain.depth_format = choose_surface_formats(
 		config,
 		ctx.swapchain_support.surface_formats,
 		ctx.physical_device,

@@ -29,7 +29,7 @@ create_descriptor_set :: proc(
 		pSetLayouts        = &descriptor_set.layout,
 	}
 
-	result = vk.AllocateDescriptorSets(ctx.device, nil, &descriptor_set.set)
+	result = vk.AllocateDescriptorSets(ctx.device, &alloc_info, &descriptor_set.set)
 	if result != .SUCCESS {
 		fmt.panicf("Failed to allocate the descriptor set (result: %v)", result)
 	}

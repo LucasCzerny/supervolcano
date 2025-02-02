@@ -9,6 +9,7 @@ Instance_Config :: struct {
 	name:                     cstring,
 	major:                    u32,
 	minor:                    u32,
+	patch:                    u32,
 	extensions:               []cstring,
 	enable_validation_layers: bool,
 }
@@ -18,7 +19,7 @@ create_instance :: proc(instance: ^vk.Instance, config: Instance_Config) {
 	app_info := vk.ApplicationInfo {
 		sType              = .APPLICATION_INFO,
 		pApplicationName   = config.name,
-		applicationVersion = vk.MAKE_VERSION(config.major, config.minor, 1),
+		applicationVersion = vk.MAKE_VERSION(config.major, config.minor, config.patch),
 		pEngineName        = "svk",
 		engineVersion      = vk.MAKE_VERSION(0, 1, 0),
 		apiVersion         = vk.API_VERSION_1_0,

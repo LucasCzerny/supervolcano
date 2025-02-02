@@ -19,12 +19,8 @@ Window :: struct {
 }
 
 @(private)
-create_glfw_window :: proc(window: ^Window, config: Window_Config) {
+create_window :: proc(window: ^Window, config: Window_Config, instance: vk.Instance) {
 	assert(!config.fullscreen, "Fullscreen is not implemented yet")
-
-	if !glfw.Init() {
-		panic("Failed to init GLFW")
-	}
 
 	glfw.WindowHint(glfw.CLIENT_API, glfw.NO_API)
 	glfw.WindowHint(glfw.RESIZABLE, cast(b32)config.resizable)
@@ -36,10 +32,7 @@ create_glfw_window :: proc(window: ^Window, config: Window_Config) {
 		nil,
 		nil,
 	)
-}
 
-@(private)
-create_surface :: proc(window: ^Window, instance: vk.Instance) {
 	result := glfw.CreateWindowSurface(instance, window.handle, nil, &window.surface)
 	if result != .SUCCESS {
 		panic("Failed to create the window surface")

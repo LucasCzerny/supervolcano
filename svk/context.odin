@@ -32,12 +32,14 @@ create_context :: proc(
 ) -> Context {
 	ctx: Context
 
-	create_glfw_window(&ctx.window, window_config)
+	if !glfw.Init() {
+		panic("Failed to initialize glfw")
+	}
 	init_vulkan()
 
 	create_instance(&ctx.instance, instance_config)
 
-	create_surface(&ctx.window, ctx.instance)
+	create_window(&ctx.window, window_config, ctx.instance)
 
 	create_devices_and_queues(&ctx, device_config, ctx.instance, ctx.window.surface)
 
@@ -52,12 +54,18 @@ create_context :: proc(
 }
 
 destroy_context :: proc(ctx: ^Context) {
-	// instance
 	vk.DestroyInstance(ctx.instance, nil)
 
-	// window
+	glfw.Terminate()
 	vk.DestroySurfaceKHR(ctx.instance, ctx.window.surface, nil)
 	glfw.DestroyWindow(ctx.window.handle)
+
+	vk.DeviceWaitIdle(ctx.device)
+	vk.DestroySwapchainKHR(ctx.device, ctx.swapchain.handle, nil)
+
+	vk.DestroyCommandPool(ctx.device, ctx.command_pool, nil)
+
+	vk.DestroyDescriptorPool(ctx.device, ctx.descriptor_pool, nil)
 }
 
 @(private)

@@ -27,7 +27,7 @@ create_command_buffers :: proc(ctx: ^Context, config: Commands_Config) {
 
 	ctx.command_buffers = make([]vk.CommandBuffer, config.nr_command_buffers)
 
-	result := vk.AllocateCommandBuffers(ctx.device, nil, raw_data(ctx.command_buffers))
+	result := vk.AllocateCommandBuffers(ctx.device, &alloc_info, raw_data(ctx.command_buffers))
 	if result != .SUCCESS {
 		fmt.panicf("Failed to create the command buffers (result: %v)", result)
 	}
