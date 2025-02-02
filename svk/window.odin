@@ -18,6 +18,7 @@ Window :: struct {
 	height:  u32,
 }
 
+@(private)
 create_glfw_window :: proc(window: ^Window, config: Window_Config) {
 	assert(!config.fullscreen, "Fullscreen is not implemented yet")
 
@@ -37,6 +38,7 @@ create_glfw_window :: proc(window: ^Window, config: Window_Config) {
 	)
 }
 
+@(private)
 create_surface :: proc(window: ^Window, instance: vk.Instance) {
 	result := glfw.CreateWindowSurface(instance, window.handle, nil, &window.surface)
 	if result != .SUCCESS {

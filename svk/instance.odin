@@ -13,6 +13,7 @@ Instance_Config :: struct {
 	enable_validation_layers: bool,
 }
 
+@(private)
 create_instance :: proc(instance: ^vk.Instance, config: Instance_Config) {
 	app_info := vk.ApplicationInfo {
 		sType              = .APPLICATION_INFO,

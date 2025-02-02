@@ -1,7 +1,5 @@
 package svk
 
-import "core:fmt"
-
 import "vendor:glfw"
 import vk "vendor:vulkan"
 
@@ -17,12 +15,20 @@ Context :: struct {
 	present_queue:     Queue,
 	//
 	swapchain:         Swapchain,
+	//
+	command_pool:      vk.CommandPool,
+	command_buffers:   []vk.CommandBuffer,
+	//
+	descriptor_pool:   vk.DescriptorPool,
 }
 
 create_context :: proc(
 	instance_config: Instance_Config,
 	window_config: Window_Config,
 	device_config: Device_Config,
+	swapchain_config: Swapchain_Config,
+	command_config: Commands_Config,
+	descriptor_config: Descriptor_Config,
 ) -> Context {
 	ctx: Context
 
@@ -33,7 +39,14 @@ create_context :: proc(
 
 	create_surface(&ctx.window, ctx.instance)
 
-	create_device_assets(&ctx, device_config, ctx.instance, ctx.window.surface)
+	create_devices_and_queues(&ctx, device_config, ctx.instance, ctx.window.surface)
+
+	create_swapchain(&ctx, swapchain_config)
+
+	create_command_pool(&ctx, command_config)
+	create_command_buffers(&ctx, command_config)
+
+	create_descriptor_pool(&ctx, descriptor_config)
 
 	return ctx
 }
@@ -58,3 +71,4 @@ init_vulkan :: proc() {
 
 	vk.load_proc_addresses(get_proc_address)
 }
+

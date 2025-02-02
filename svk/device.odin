@@ -17,7 +17,8 @@ Swapchain_Support :: struct {
 	present_modes:   []vk.PresentModeKHR,
 }
 
-create_device_assets :: proc(
+@(private)
+create_devices_and_queues :: proc(
 	ctx: ^Context,
 	config: Device_Config,
 	instance: vk.Instance,
@@ -40,16 +41,15 @@ choose_physical_device_and_queues :: proc(
 	assert(physical_device_count != 0, "No physical devices were found")
 
 	physical_devices := make([]vk.PhysicalDevice, physical_device_count)
-	vk.EnumeratePhysicalDevices(instance, nil, raw_data(physical_devices))
-	choosen := false
+	vk.EnumeratePhysicalDevices(instance, &physical_device_count, raw_data(physical_devices))
 
 	for physical_device in physical_devices {
-		found, graphics_queue, present_queue := get_queue_families(physical_device, surface)
+		graphics_queue, present_queue, found := get_queue_families(physical_device, surface)
 		if !found {
 			continue
 		}
 
-		complete, swapchain_support := query_swapchain_support(physical_device, surface)
+		swapchain_support, complete := query_swapchain_support(physical_device, surface)
 		if !complete {
 			continue
 		}
@@ -65,6 +65,7 @@ choose_physical_device_and_queues :: proc(
 		ctx.physical_device = physical_device
 		ctx.graphics_queue.family = graphics_queue
 		ctx.present_queue.family = present_queue
+		ctx.swapchain_support = swapchain_support
 
 		break
 	}
@@ -107,7 +108,7 @@ choose_logical_device :: proc(ctx: ^Context, config: Device_Config) {
 }
 
 @(private = "file")
-get_queue_families :: proc(device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> (bool, u32, u32) {
+get_queue_families :: proc(device: vk.PhysicalDevice, surface: vk.SurfaceKHR) -> (u32, u32, bool) {
 	graphics_queue, present_queue: u32 = ~u32(0), ~u32(0)
 
 	queue_family_count: u32
@@ -116,7 +117,11 @@ get_queue_families :: proc(device: vk.PhysicalDevice, surface: vk.SurfaceKHR) ->
 	assert(queue_family_count != 0, "No queue families were found")
 
 	queue_families := make([]vk.QueueFamilyProperties, queue_family_count)
-	vk.GetPhysicalDeviceQueueFamilyProperties(device, nil, raw_data(queue_families))
+	vk.GetPhysicalDeviceQueueFamilyProperties(
+		device,
+		&queue_family_count,
+		raw_data(queue_families),
+	)
 
 	for family, i in queue_families {
 		if family.queueCount <= 0 {
@@ -135,11 +140,11 @@ get_queue_families :: proc(device: vk.PhysicalDevice, surface: vk.SurfaceKHR) ->
 		}
 
 		if graphics_queue != ~u32(0) && present_queue != ~u32(0) {
-			return true, graphics_queue, present_queue
+			return graphics_queue, present_queue, true
 		}
 	}
 
-	return false, 0, 0
+	return 0, 0, false
 }
 
 @(private = "file")
@@ -147,8 +152,8 @@ query_swapchain_support :: proc(
 	device: vk.PhysicalDevice,
 	surface: vk.SurfaceKHR,
 ) -> (
-	bool,
 	Swapchain_Support,
+	bool,
 ) {
 	support: Swapchain_Support
 
@@ -157,28 +162,33 @@ query_swapchain_support :: proc(
 	vk.GetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surface_format_count, nil)
 
 	if surface_format_count == 0 {
-		return false, support
+		return support, false
 	}
 
 	support.surface_formats = make([]vk.SurfaceFormatKHR, surface_format_count)
-	vk.GetPhysicalDeviceSurfaceFormatsKHR(device, surface, nil, raw_data(support.surface_formats))
+	vk.GetPhysicalDeviceSurfaceFormatsKHR(
+		device,
+		surface,
+		&surface_format_count,
+		raw_data(support.surface_formats),
+	)
 
 	present_modes_count: u32
 	vk.GetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_modes_count, nil)
 
 	if present_modes_count == 0 {
-		return false, support
+		return support, false
 	}
 
 	support.present_modes = make([]vk.PresentModeKHR, present_modes_count)
 	vk.GetPhysicalDeviceSurfacePresentModesKHR(
 		device,
 		surface,
-		nil,
+		&present_modes_count,
 		raw_data(support.present_modes),
 	)
 
-	return true, support
+	return support, true
 }
 
 @(private = "file")
@@ -186,7 +196,7 @@ supports_extensions :: proc(device: vk.PhysicalDevice, required_extensions: []cs
 	extension_count: u32
 	vk.EnumerateDeviceExtensionProperties(device, nil, &extension_count, nil)
 
-	assert(extension_count == 0, "No device extension are available")
+	assert(extension_count != 0, "No device extension are available")
 
 	available_extensions := make([]vk.ExtensionProperties, extension_count)
 	vk.EnumerateDeviceExtensionProperties(device, nil, nil, raw_data(available_extensions))
@@ -224,3 +234,4 @@ supports_features :: proc(
 
 	return true
 }
+
